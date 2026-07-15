@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.tasks import router as task_router
 from app.api.health import router as health_router
 from app.api.about import router as about_router
+from app.api.messages import router as messages_router
 
 app = FastAPI()
 
@@ -15,3 +16,4 @@ def root():
 app.include_router(task_router)
 app.include_router(health_router)
 app.include_router(about_router)
+app.include_router(messages_router)
