@@ -27,5 +27,6 @@ API docs at `http://localhost:8000/docs` when running.
 - Services are instantiated per-request via `Depends(get_<service>)`
 - Always create a new branch before starting work: `git checkout -b type/description`
   - Types: `feat`, `fix`, `refactor`, `chore`
+- Never merge directly into master. Open a PR and merge via GitHub.
 - Use `.venv\Scripts\python -m` prefix for uvicorn/pip (avoids venv activation issues on Windows)
 - No tests, linting, or formatting configured yet
