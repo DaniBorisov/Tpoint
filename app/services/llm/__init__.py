@@ -13,7 +13,7 @@ def get_llm() -> BaseLLM:
 
     if provider == "ollama":
         return OllamaLLM(
-            base_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
+            host=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             model=os.getenv("OLLAMA_MODEL", "llama3.2"),
         )
 
