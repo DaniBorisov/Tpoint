@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 
-
 class BaseLLM(ABC):
 
     @abstractmethod
-    def chat(self, prompt: str) -> str:
+    async def chat(self, prompt: str) -> str:
         ...
