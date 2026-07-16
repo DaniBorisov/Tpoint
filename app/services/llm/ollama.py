@@ -9,8 +9,9 @@ class OllamaLLM(BaseLLM):
         self.base_url = base_url
         self.model = model
 
-    def chat(self, prompt: str) -> str:
-        response = httpx.post(
+    async def chat(self, prompt: str) -> str:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
             f"{self.base_url}/api/generate",
             json={"model": self.model, "prompt": prompt, "stream": False},
             timeout=60.0,
