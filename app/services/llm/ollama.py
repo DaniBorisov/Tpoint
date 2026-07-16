@@ -1,14 +1,19 @@
-import ollama
+import httpx
 
 from app.services.llm.base import BaseLLM
 
 
 class OllamaLLM(BaseLLM):
 
-    def __init__(self, host: str, model: str):
-        self.client = ollama.Client(host=host)
+    def __init__(self, base_url: str, model: str):
+        self.base_url = base_url
         self.model = model
 
-    def chat(self, messages: list[dict]) -> str:
-        response = self.client.chat(model=self.model, messages=messages)
-        return response["message"]["content"]
+    def chat(self, prompt: str) -> str:
+        response = httpx.post(
+            f"{self.base_url}/api/generate",
+            json={"model": self.model, "prompt": prompt, "stream": False},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+        return response.json()["response"]
