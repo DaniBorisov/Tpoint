@@ -15,6 +15,7 @@ build/
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # IDE
 .vscode/
@@ -30,3 +31,6 @@ Desktop.ini
 
 # FastAPI
 *.log
+
+# Project
+AGENTS.md
