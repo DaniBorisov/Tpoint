@@ -20,6 +20,6 @@ def get_messages(service: MessageService = Depends(get_message_service)):
 
 
 @router.post("/")
-def create_message(message: MessageCreate,
-                   service: MessageService = Depends(get_message_service)):
-    return service.create_message(message)
+async def create_message(message: MessageCreate,
+                        service: MessageService = Depends(get_message_service)):
+    return await service.create_message(message)

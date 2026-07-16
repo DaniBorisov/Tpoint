@@ -12,9 +12,9 @@ class MessageService:
     def get_messages(self) -> list[dict]:
         return self.messages
 
-    def create_message(self, message: MessageCreate) -> dict:
+    async def create_message(self, message: MessageCreate) -> dict:
         llm = get_llm()
-        llm_response = llm.chat(message.content)
+        llm_response = await llm.chat(message.content)
 
         record = {
             "id": MessageService._next_id,
