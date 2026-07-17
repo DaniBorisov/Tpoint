@@ -65,7 +65,10 @@ class TaskService:
     def get_task_db(self,
                      db: Session,
                      task_id: int):
-        return self.repository.get_task(db, task_id)
+        task = self.repository.get_task(db, task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task Not Found!")
+        return task
        
     
     def create_task_db(self,

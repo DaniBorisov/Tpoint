@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
+from datetime import datetime
 
 class MessageCreate(BaseModel):
     sender: str
@@ -7,8 +8,10 @@ class MessageCreate(BaseModel):
 
 
 class MessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     sender: str
     content: str
-    timestamp: str
+    timestamp: datetime
     llm_response: str | None = None
