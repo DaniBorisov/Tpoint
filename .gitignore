@@ -34,3 +34,4 @@ Desktop.ini
 
 # Project
 AGENTS.md
+app/database/*.sql

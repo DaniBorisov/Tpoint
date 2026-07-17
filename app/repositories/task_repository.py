@@ -24,8 +24,9 @@ class TaskRepository:
             db: Session,
             task_id: int,
              ):
-        return db.scalars(select(Task).where(Task.id == task_id)
-        ).all()
+        return db.scalars(
+            select(Task).where(Task.id == task_id)
+        ).first()
     
     def create_task(
             self,
