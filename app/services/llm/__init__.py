@@ -15,6 +15,7 @@ def get_llm() -> BaseLLM:
         return OllamaLLM(
             base_url=os.getenv("OLLAMA_URL", "http://localhost:11434"),
             model=os.getenv("OLLAMA_MODEL", "llama3.2"),
+            num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "4096" )),
         )
 
     raise ValueError(f"Unknown LLM provider: {provider}")
