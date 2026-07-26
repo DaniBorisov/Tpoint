@@ -3,6 +3,8 @@ from fastapi import FastAPI
 from app.api.tasks import router as task_router
 from app.api.messages import router as messages_router
 
+import app.models
+
 app = FastAPI()
 
 @app.get("/")

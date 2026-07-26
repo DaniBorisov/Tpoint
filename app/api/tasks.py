@@ -18,15 +18,15 @@ router = APIRouter(
     )
 
 ## IN MEMORY 
-@router.get("/", response_model=list[TaskResponse])
-def get_tasks(priority: str | None = None,
-              service: TaskService = Depends(get_task_service)):
-    return service.get_tasks(priority)
+# @router.get("/", response_model=list[TaskResponse])
+# def get_tasks(priority: str | None = None,
+#               service: TaskService = Depends(get_task_service)):
+#     return service.get_tasks(priority)
 
-@router.post("/", response_model=TaskResponse)
-def create_task(task: TaskCreate,
-                service: TaskService = Depends(get_task_service)):
-    return service.create_task(task)
+# @router.post("/", response_model=TaskResponse)
+# def create_task(task: TaskCreate,
+#                 service: TaskService = Depends(get_task_service)):
+#     return service.create_task(task)
 
 ## IN PostgreSQL
 
@@ -52,7 +52,7 @@ def create_task_db(
 
 ## IN memory (dynamic route)
 
-@router.get("/{task_id}", response_model=TaskResponse)
-def get_task(task_id: int,
-             service: TaskService = Depends(get_task_service)):
-    return service.get_task(task_id)
+# @router.get("/{task_id}", response_model=TaskResponse)
+# def get_task(task_id: int,
+#              service: TaskService = Depends(get_task_service)):
+#     return service.get_task(task_id)
