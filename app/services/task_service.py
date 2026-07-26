@@ -78,6 +78,7 @@ class TaskService:
         task = Task(
                 title=task_data.title,
                 priority=task_data.priority,
+                user_id=task_data.user_id,
              )
         
         return self.repository.create_task(db,task)

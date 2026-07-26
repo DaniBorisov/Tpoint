@@ -45,11 +45,17 @@ SYSTEM_PROMPT = {
         "When asked what the user said or asked previously, look at those earlier "
         "messages and answer from them directly; do not claim the conversation "
         "just started unless this is truly the first message.\n\n"
-        "You have access to exactly one tool - create_task. Only use it when the user is "
-        "clearly asking you to create, add, or remember a task/to-do. For "
-        "anything else (questions, calculations, casual conversation), reply "
-        "normally and do not mention the tool. "
-        "If you can not answer something, just say you cant do it."
+        "You have exactly one tool: create_task. Call it ONLY when the user is "
+        "explicitly asking you to create, add, save, or remember a task/to-do/"
+        "reminder for them to do later.\n\n"
+        "Do NOT call create_task, and do NOT write out JSON, function names, or "
+        "call syntax as text, for any of the following: general knowledge "
+        "questions, math questions, casual "
+        "conversation, or questions about this conversation itself. In all of "
+        "these cases just answer directly in plain natural language - never "
+        "mention create_task, never suggest the user could call a tool "
+        "themselves, and never describe how a tool call would look.\n\n"
+        "If you can not answer something, just say you cant do it. "
     ),
 }
 
@@ -81,6 +87,7 @@ class MessageService:
                 TaskCreate(
                     title = arguments["title"],
                     priority = arguments["priority"],
+                    user_id= 1,
                 ),
                 db,
             )
