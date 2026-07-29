@@ -25,10 +25,16 @@ Copy `.env.example` to `.env` and configure as needed.
 Start PostgreSQL with Docker:
 
 ```bash
-docker-compose up -d
+docker compose up -d postgres
 ```
 
 This creates an `ai_assistant` database on port 5432.
+
+### Apply migrations
+
+```bash
+alembic upgrade head
+```
 
 ### LLM (optional)
 
@@ -41,8 +47,18 @@ ollama serve
 
 ## Run
 
+### Option A — local dev
+
 ```bash
-python -m uvicorn app.main:app --reload
+uvicorn app.main:app --reload
+```
+
+### Option B — full Docker stack
+
+Builds both the backend and PostgreSQL:
+
+```bash
+docker compose up --build
 ```
 
 API docs at `http://localhost:8000/docs`
@@ -52,9 +68,6 @@ API docs at `http://localhost:8000/docs`
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Welcome message |
-| GET | `/tasks/` | List all tasks (in-memory, optional `?priority=` filter) |
-| GET | `/tasks/{task_id}` | Get task by ID (in-memory) |
-| POST | `/tasks/` | Create a task (in-memory) |
 | GET | `/tasks/db` | List all tasks (PostgreSQL, optional `?priority=` filter) |
 | GET | `/tasks/db/{task_id}` | Get task by ID (PostgreSQL) |
 | POST | `/tasks/db` | Create a task (PostgreSQL) |

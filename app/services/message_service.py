@@ -56,6 +56,7 @@ SYSTEM_PROMPT = {
         "mention create_task, never suggest the user could call a tool "
         "themselves, and never describe how a tool call would look.\n\n"
         "If you can not answer something, just say you cant do it. "
+        "Отговори на въпросите на Български език!"
     ),
 }
 

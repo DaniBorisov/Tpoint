@@ -1,6 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-from sqlalchemy import select
 
 from app.models.task import Task
 from app.schemas.task import TaskCreate
