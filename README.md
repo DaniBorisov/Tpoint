@@ -8,7 +8,7 @@ A task management and AI chat API built with FastAPI, PostgreSQL, and Ollama.
 - PostgreSQL (or Docker)
 - [Ollama](https://ollama.com) (optional, for chat endpoint)
 
-## Setup
+## Dev Setup
 
 ```bash
 git clone https://github.com/DaniBorisov/Tpoint.git
