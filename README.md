@@ -61,6 +61,12 @@ Builds both the backend and PostgreSQL:
 docker compose up --build
 ```
 
+If docker volumes build with older version clean the volumes:
+
+```bash
+docker compose down -v
+```
+
 API docs at `http://localhost:8000/docs`
 
 ## Endpoints
