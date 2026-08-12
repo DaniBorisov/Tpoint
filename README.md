@@ -20,6 +20,16 @@ pip install -r requirements.txt
 
 Copy `.env.example` to `.env` and configure as needed.
 
+## Configuration
+
+- `DATABASE_ECHO` — default `false`. When `true`, logs every SQL statement executed against the database.
+- `LOG_LEVEL` — default `INFO`. Sets application log verbosity (see below).
+
+### Log levels
+
+- `INFO` — logs standard application events: task and message creation, LLM calls, message retrieval.
+- `DEBUG` — everything in `INFO` plus fine-grained detail for troubleshooting during development.
+
 ### Database
 
 Start PostgreSQL with Docker:
@@ -84,6 +94,7 @@ API docs at `http://localhost:8000/docs`
 
 - **FastAPI** — web framework
 - **SQLAlchemy** — ORM and database access
+- **Alembic** — database migrations
 - **PostgreSQL** — persistent storage
 - **Ollama** — local LLM for chat
 - **Pydantic** — data validation

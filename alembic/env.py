@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.database.database import Base
+from app.core.config import settings
 
 # from app.models.task import Task
 # from app.models.user import User
@@ -13,24 +14,24 @@ from app.database.database import Base
 
 import app.models
 
-from dotenv import load_dotenv
-import os
+# from dotenv import load_dotenv
+# import os
 
-load_dotenv()
+# load_dotenv()
 
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# DATABASE_URL = os.getenv("DATABASE_URL")
 
-if DATABASE_URL is None:
-    raise RuntimeError("DATABASE_URL is not set")
+# if DATABASE_URL is None:
+#     raise RuntimeError("DATABASE_URL is not set")
 
 config.set_main_option(
     "sqlalchemy.url",
-    DATABASE_URL,
+    settings.database_url,
 )
 
 # Interpret the config file for Python logging.

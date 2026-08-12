@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session
 from app.models.task import Task
 from app.schemas.task import TaskCreate
 
-from fastapi import HTTPException
-
 from app.repositories.task_repository import TaskRepository
+from app.core.exceptions import TaskNotFoundError
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TaskService:
     def __init__(self):
@@ -39,7 +41,7 @@ class TaskService:
         for task in self.tasks:
             if task["id"] == task_id:
                 return task
-        raise HTTPException(status_code=404, detail="Task Not Found") 
+        raise TaskNotFoundError(task_id) 
     
     def create_task(self,task):
         next_id = max((t["id"] for t in self.tasks), default=0) + 1
@@ -58,14 +60,30 @@ class TaskService:
     def get_tasks_db(self,
                       db: Session,
                       priority: str | None = None):
+
+        logger.info(
+            "Retrive all tasks",
+        )
+        
         return self.repository.get_all(db, priority)
     
     def get_task_db(self,
                      db: Session,
                      task_id: int):
+
+        logger.info(
+            "Retriving task %s",
+            task_id,)
+        
         task = self.repository.get_task(db, task_id)
+
+
         if task is None:
-            raise HTTPException(status_code=404, detail="Task Not Found!")
+            logger.warning(
+                "Task %s was not found",
+                task_id,)
+
+            raise TaskNotFoundError(task_id)
         return task
        
     
@@ -73,10 +91,21 @@ class TaskService:
                         task_data: TaskCreate,
                         db: Session):
 
+        logger.info(
+            "Creating Task with priority = %s",
+            task_data.priority,)
+
         task = Task(
                 title=task_data.title,
                 priority=task_data.priority,
                 user_id=task_data.user_id,
              )
-        
-        return self.repository.create_task(db,task)
+
+        saved = self.repository.create_task(db, task)
+
+        logger.info(
+            "Task created successfully id = %s",
+            saved.id,
+        )
+
+        return saved

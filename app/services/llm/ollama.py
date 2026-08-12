@@ -1,6 +1,9 @@
 import httpx
+import logging
 
 from app.services.llm.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaLLM(BaseLLM):
@@ -11,8 +14,12 @@ class OllamaLLM(BaseLLM):
         self.num_ctx = num_ctx
 
     async def chat(self, messages: list[dict], tools: list[dict] | None = None) -> dict:
-        # messages = list(history) if history else []
-        # messages.append({"role": "user", "content" : prompt})
+        logger.info(
+            "Ollama chat request to %s with model %s (tools=%s)",
+            self.base_url,
+            self.model,
+            bool(tools),
+        )
 
         payload = {
             "model": self.model,
@@ -32,5 +39,9 @@ class OllamaLLM(BaseLLM):
         )
             
         # print(response.json())
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            logger.warning("Ollama request failed: %s", e)
+            raise
         return response.json()["message"]
