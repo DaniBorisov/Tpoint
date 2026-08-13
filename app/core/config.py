@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     database_url: str
     database_echo: bool = False
+    test_database_url: str
 
     llm_provider: str = "ollama"
     ollama_model: str = "llama3.2"

@@ -5,16 +5,21 @@ from app.models.message import Message
 
 class MessageRepository:
 
-    def get_all(self, db: Session):
-        return db.scalars(
+    def __init__(self,
+                 db: Session,
+                 ):
+        self.db = db
+
+    def get_all(self):
+        return self.db.scalars(
             select(Message).order_by(Message.id)
         ).all()
     
-    def create_message(self, db:Session, message: Message) -> Message:
+    def create_message(self, message: Message) -> Message:
 
-        db.add(message)
-        db.commit()
-        db.refresh(message)
+        self.db.add(message)
+        self.db.commit()
+        self.db.refresh(message)
 
         return message
         
