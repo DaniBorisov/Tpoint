@@ -12,6 +12,15 @@ class FakeTaskRepository:
     ):
         return self.tasks.get(task_id)
 
+    def get_all(
+        self,
+        priority: str | None = None,
+    ):
+        if priority is None:
+            return list(self.tasks.values())
+
+        return [task for task in self.tasks.values() if task.priority == priority]
+
     def create_task(
         self,
         task,
