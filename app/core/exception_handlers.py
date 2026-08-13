@@ -42,3 +42,4 @@ async def tool_call_error_handler(
             "message": str(exc),
         },
     )
+

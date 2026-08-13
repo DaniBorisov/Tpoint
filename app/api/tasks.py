@@ -4,12 +4,20 @@ from fastapi import Depends
 from app.schemas.task import TaskCreate, TaskResponse
 
 from app.services.task_service import TaskService
+from app.repositories.task_repository import TaskRepository
 
 from sqlalchemy.orm import Session
 from app.database.database import get_db
 
-def get_task_service():
-    return TaskService()
+def get_task_repository(
+        db: Session = Depends(get_db)
+):
+    return TaskRepository(db)
+
+def get_task_service(
+        repository: TaskRepository = Depends(get_task_repository),
+        ):
+    return TaskService(repository)
 
 
 router = APIRouter(
@@ -31,24 +39,21 @@ router = APIRouter(
 ## IN PostgreSQL
 
 @router.get("/db", response_model=list[TaskResponse])
-def get_tasks_db(db: Session = Depends(get_db),
-                  service: TaskService = Depends(get_task_service),
+def get_tasks_db( service: TaskService = Depends(get_task_service),
                   priority: str | None = None,):
-    return service.get_tasks_db(db, priority)
+    return service.get_tasks_db( priority)
 
 @router.get("/db/{task_id}", response_model=TaskResponse)
 def get_task_db(task_id: int,
-                db: Session = Depends(get_db),
                 service: TaskService = Depends(get_task_service),):
-    return service.get_task_db(db, task_id)
+    return service.get_task_db(task_id)
 
 @router.post("/db", response_model=TaskResponse)
 def create_task_db(
         task: TaskCreate,
         service: TaskService = Depends(get_task_service),
-        db: Session = Depends(get_db),
         ):
-    return service.create_task_db(task, db)
+    return service.create_task_db(task)
 
 ## IN memory (dynamic route)
 

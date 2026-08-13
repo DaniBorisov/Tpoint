@@ -11,8 +11,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class TaskService:
-    def __init__(self):
-        self.repository = TaskRepository()
+    def __init__(self,
+                 repository: TaskRepository,
+                 ):
+        self.repository = repository
 
 ## in Memory 
 
@@ -58,24 +60,22 @@ class TaskService:
 ## In PostgreSQL   
 #  
     def get_tasks_db(self,
-                      db: Session,
                       priority: str | None = None):
 
         logger.info(
             "Retrive all tasks",
         )
         
-        return self.repository.get_all(db, priority)
+        return self.repository.get_all(priority)
     
     def get_task_db(self,
-                     db: Session,
                      task_id: int):
 
         logger.info(
             "Retriving task %s",
             task_id,)
         
-        task = self.repository.get_task(db, task_id)
+        task = self.repository.get_task(task_id)
 
 
         if task is None:
@@ -89,7 +89,7 @@ class TaskService:
     
     def create_task_db(self,
                         task_data: TaskCreate,
-                        db: Session):
+                        ):
 
         logger.info(
             "Creating Task with priority = %s",
@@ -101,7 +101,7 @@ class TaskService:
                 user_id=task_data.user_id,
              )
 
-        saved = self.repository.create_task(db, task)
+        saved = self.repository.create_task(task)
 
         logger.info(
             "Task created successfully id = %s",

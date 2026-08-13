@@ -5,37 +5,39 @@ from app.models.task import Task
 
 class TaskRepository:
 
+    def __init__(self,
+                 db: Session,
+                 ):
+        self.db = db
+
     def get_all(
             self,
-            db: Session,
             priority: str | None = None,
     ):
         if priority is None:
-            return db.scalars(
+            return self.db.scalars(
                 select(Task)
             ).all()
         
-        return db.scalars(
+        return self.db.scalars(
             select(Task).where(Task.priority == priority)
         ).all()
     
     def get_task(
             self,
-            db: Session,
             task_id: int,
              ):
-        return db.scalars(
+        return self.db.scalars(
             select(Task).where(Task.id == task_id)
         ).first()
     
     def create_task(
             self,
-            db: Session,
             task: Task
     ):
-        db.add(task)
-        db.commit()
-        db.refresh(task)
+        self.db.add(task)
+        self.db.commit()
+        self.db.refresh(task)
 
         return task
     

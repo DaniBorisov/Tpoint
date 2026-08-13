@@ -10,6 +10,7 @@ from app.models.message import Message
 
 from app.services.llm import get_llm
 from app.repositories.message_repository import MessageRepository
+from app.repositories.task_repository import TaskRepository
 from app.services.task_service import TaskService
 from app.core.exceptions import LLMUnavailableError, ToolCallError
 
@@ -67,16 +68,20 @@ TOOLS = [CREATE_TASK_TOOL]
 
 class MessageService:
 
-    def __init__(self):
-        self.repository = MessageRepository()
-        self.task_service = TaskService()
+    def __init__(
+        self,
+        repository: MessageRepository,
+        task_service: TaskService,
+    ):
+        self.repository = repository
+        self.task_service = task_service
 
-    def get_messages(self, db: Session):
+    def get_messages(self):
         logger.info("Retrieving all messages")
-        return self.repository.get_all(db)
+        return self.repository.get_all()
     
-    def _build_history(self, db: Session) -> list[dict]:
-        past_messages = self.repository.get_all(db)
+    def _build_history(self) -> list[dict]:
+        past_messages = self.repository.get_all()
         logger.info("Building history from %s messages", len(past_messages))
         recent = past_messages[-HISTORY_LIMIT:]
 
@@ -87,16 +92,20 @@ class MessageService:
                 history.append({"role": "assistant", "content": m.llm_response})
         return history
     
-    def _run_tool(self, name: str, arguments: dict, db: Session) -> str:
+    def _run_tool(self, name: str, arguments: dict) -> str:
         logger.info("Running tool %s", name)
         if name == "create_task":
+            # task_service = (
+            #     self.task_service
+            #     if self.task_service is not None
+            #     else TaskService(TaskRepository(db))
+            # )
             task = self.task_service.create_task_db(
                 TaskCreate(
                     title = arguments["title"],
                     priority = arguments["priority"],
                     user_id= 1,
                 ),
-                db,
             )
             return f"Task created: '{task.title}', '{task.priority}', 'id: {task.id}'"
         logger.warning("Unknown tool used: %s", name)
@@ -110,10 +119,10 @@ class MessageService:
             logger.warning("LLM call failed: %s", e)
             raise LLMUnavailableError(f"LLM unavailable: {e}")
 
-    async def create_message(self, message: MessageCreate, db: Session) -> Message:
+    async def create_message(self, message: MessageCreate) -> Message:
         logger.info("Creating message from sender %s", message.sender)
         llm = get_llm()
-        history = self._build_history(db)
+        history = self._build_history()
         messages = [SYSTEM_PROMPT] + history + [{"role": "user", "content": message.content}]
 
         llm_messages = await self._call_llm(llm, messages)
@@ -130,7 +139,7 @@ class MessageService:
                 try:
                     if isinstance(arguments, str):
                         arguments = json.loads(arguments)
-                    result = self._run_tool(name, arguments, db)
+                    result = self._run_tool(name, arguments)
                 except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
                     logger.warning("Invalid tool call arguments: %s", e)
                     raise ToolCallError(f"Invalid tool call arguments: {e}")
@@ -149,6 +158,6 @@ class MessageService:
             llm_response = llm_response,
         )
 
-        saved = self.repository.create_message(db, record)
+        saved = self.repository.create_message(record)
         logger.info("Message created with id %s", saved.id)
         return saved
