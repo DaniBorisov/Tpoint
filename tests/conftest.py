@@ -7,7 +7,7 @@ from app.core.config import settings
 
 from fastapi.testclient import TestClient
 
-from app.database.database import get_db
+from app.database.database import Base, get_db
 from app.main import app
 from app.models.task import Task
 
@@ -30,6 +30,14 @@ TestSessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False,
 )
+
+@pytest.fixture(scope="session", autouse=True)
+def create_test_schema():
+    if not TEST_DATABASE_URL.endswith("ai_assistant_test"):
+        raise RuntimeError("Tests must use the test database")
+    Base.metadata.create_all(test_engine)
+    yield
+    test_engine.dispose()
 
 @pytest.fixture
 def db_session():

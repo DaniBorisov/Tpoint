@@ -5,7 +5,8 @@ def test_get_task_api(
     client,
     task_factory,
 ):
-    task = task_factory(title="API test task", priority="high")
+    task = task_factory(title="API test task",
+                         priority="high")
 
     response = client.get(
         f"/tasks/db/{task.id}"
@@ -37,7 +38,8 @@ def test_get_tasks_api(
     client,
     task_factory,
 ):
-    task = task_factory(title="API test task", priority="high")
+    task = task_factory(title="API test task",
+                         priority="high")
 
     response = client.get(
         f"/tasks/db"
