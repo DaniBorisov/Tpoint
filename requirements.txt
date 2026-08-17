@@ -32,4 +32,6 @@ colorama==0.4.6
 greenlet==3.5.3
 python-dotenv==1.2.2
 tzdata==2026.3
-    
+
+# Testing
+pytest==9.1.1

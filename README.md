@@ -22,6 +22,8 @@ Copy `.env.example` to `.env` and configure as needed.
 
 ## Configuration
 
+- `DATABASE_URL` — main PostgreSQL connection string.
+- `TEST_DATABASE_URL` — PostgreSQL connection string used by the test suite. Required; the suite refuses to run unless it points to the `ai_assistant_test` database.
 - `DATABASE_ECHO` — default `false`. When `true`, logs every SQL statement executed against the database.
 - `LOG_LEVEL` — default `INFO`. Sets application log verbosity (see below).
 
@@ -79,6 +81,20 @@ docker compose down -v
 
 API docs at `http://localhost:8000/docs`
 
+## Run tests
+
+The test suite runs against a dedicated `ai_assistant_test` database. Start
+PostgreSQL and create the test database, then run `pytest`:
+
+```bash
+docker compose up -d postgres
+docker exec ai_assistant_postgres createdb -U postgres ai_assistant_test
+pytest
+```
+
+The test schema is created automatically before the suite runs. Each test
+cleans up after itself, so the database is reused across runs.
+
 ## Endpoints
 
 | Method | Path | Description |
@@ -98,3 +114,4 @@ API docs at `http://localhost:8000/docs`
 - **PostgreSQL** — persistent storage
 - **Ollama** — local LLM for chat
 - **Pydantic** — data validation
+- **Pytest** — unit, integration, and API tests
