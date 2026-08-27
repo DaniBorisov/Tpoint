@@ -1,7 +1,7 @@
 import httpx
 import logging
 
-from app.services.llm.base import BaseLLM
+from app.llm.base import BaseLLM
 
 logger = logging.getLogger(__name__)
 

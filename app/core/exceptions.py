@@ -18,3 +18,14 @@ class LLMUnavailableError(AppError):
 
 class ToolCallError(AppError):
     pass
+
+class LLMProviderError(AppError):
+    pass
+
+
+class LLMRateLimitError(LLMProviderError):
+    pass
+
+
+class LLMAuthenticationError(LLMProviderError):
+    pass
