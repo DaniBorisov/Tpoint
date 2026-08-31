@@ -85,7 +85,7 @@ router = APIRouter(
 
 
 @router.post(
-    "",
+    "/",
     response_model=AgentResponse,
 )
 async def run_agent(
