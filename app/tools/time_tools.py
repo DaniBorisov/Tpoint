@@ -1,6 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from openai.types.responses import FunctionToolParam
+
+
 def get_current_time(city: str) -> str:
 
     timezones = {
@@ -20,3 +23,26 @@ def get_current_time(city: str) -> str:
     )
 
     return current_time.isoformat()
+
+
+TIME_TOOL: FunctionToolParam = {
+    "type": "function",
+    "name": "get_current_time",
+    "description": (
+        "Get the current local time for a supported city."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "city": {
+                "type": "string",
+                "description": (
+                    "The city whose local time is requested."
+                ),
+            }
+        },
+        "required": ["city"],
+        "additionalProperties": False,
+    },
+    "strict": True,
+}

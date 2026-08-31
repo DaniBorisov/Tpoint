@@ -1,106 +1,87 @@
 import logging
+
 import openai
-from openai import OpenAI
-from openai.types.responses import FunctionToolParam
-import json
+from openai import AsyncOpenAI
 
 from app.core.config import settings
+from app.core.exceptions import LLMAuthenticationError, LLMProviderError, LLMRateLimitError
+from app.llm.base import GENERIC_INSTRUCTIONS, LLMProvider, LLMResponse
 from app.schemas.ai import EmailSummary, PersonInfo
-from app.tools import time_tools
-from app.tools import math_tools
-
-from app.core.exceptions import LLMAuthenticationError,LLMRateLimitError,LLMProviderError
+from app.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
+OPENAI_INSTRUCTIONS = (
+    GENERIC_INSTRUCTIONS
+    + (
+        "Call the create_task tool when the user is explicitly asking to "
+        "create, add, save, or remember a task/to-do/reminder for them to do later. "
+        " If a tool returns something that is not supported, "
+        "say that as a response instead of inventing information."
+    )
+)
 
 
-time_tool: FunctionToolParam = {
-    "type": "function",
-    "name": "get_current_time",
-    "description": (
-        "Get the current local time for a supported city."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "city": {
-                "type": "string",
-                "description": (
-                    "The city whose local time is requested."
-                ),
-            }
-        },
-        "required": ["city"],
-        "additionalProperties": False,
-    },
-    "strict": True,
-}
+class OpenAIProvider(LLMProvider):
 
-add_numbers_tool: FunctionToolParam = {
-    "type": "function",
-    "name": "add_numbers",
-    "description": "Add two numbers together.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "a": {
-                "type": "number"
-            },
-            "b": {
-                "type": "number"
-            },
-        },
-        "required": [
-            "a",
-            "b",
-        ],
-        "additionalProperties": False,
-    },
-    "strict": True,
-}
-
-TOOLS = {
-    "get_current_time": time_tools.get_current_time,
-    "add_numbers": math_tools.add_numbers,
-}
-
-class OpenAIProvider:
-
-    def __init__(self):
-        self.client = OpenAI(
+    def __init__(
+        self,
+        tool_registry: ToolRegistry,
+    ):
+        super().__init__(tool_registry)
+        self.client = AsyncOpenAI(
             api_key=settings.openai_api_key
         )
 
-    def generate(
+    def build_messages(
         self,
-        prompt: str,
-    ) -> str:
+        user_message: str,
+    ) -> list[dict]:
+        return [
+            {
+                "role": "system",
+                "content": OPENAI_INSTRUCTIONS,
+            },
+            {
+                "role": "user",
+                "content": user_message,
+            },
+        ]
 
+    async def chat_response(
+        self,
+        messages: list[dict],
+        tools: list,
+    ) -> LLMResponse:
         try:
-            response = self.client.responses.create(
+            response = await self.client.responses.create(
                 model=settings.openai_model,
-                instructions=(
-                    "You are an AI assistant. "
-                    "Answer clearly and concisely. "
-                    "If you do not know something, say so "
-                    "rather than inventing information."
-                ),
-                input=prompt,
-            )
-
-            logger.info(
-                "OpenAI request completed: response_id=%s",
-                response.id,
+                input=messages, # type: ignore
+                tools=tools,
             )
 
             logger.debug(
-                "LLM response: %s",
-                response
+                "OpenAI raw output: %s",
+                response.output,
             )
 
-            return response.output_text
-        
+            output: list[dict] = []
+            for item in response.output:
+                if item.type == "function_call":
+                    output.append(
+                        {
+                            "type": "function_call",
+                            "name": item.name,
+                            "arguments": item.arguments,
+                            "call_id": item.call_id,
+                        }
+                    )
+
+            return LLMResponse(
+                output=output,
+                output_text=response.output_text,
+            )
+
         except openai.RateLimitError as exc:
             raise LLMRateLimitError(
                 "The LLM provider rate limit was exceeded."
@@ -114,7 +95,7 @@ class OpenAIProvider:
         except (
             openai.APITimeoutError,
             openai.APIConnectionError,
-                ) as exc:
+        ) as exc:
             raise LLMProviderError(
                 "Unable to communicate with the LLM provider."
             ) from exc
@@ -123,14 +104,42 @@ class OpenAIProvider:
             raise LLMProviderError(
                 "The LLM provider returned an error."
             ) from exc
-            
 
-    def extract_person(
+    def append_assistant_output(
+        self,
+        messages: list[dict],
+        response: LLMResponse,
+    ) -> None:
+        for item in response.output:
+            if item["type"] == "function_call":
+                messages.append(
+                    {
+                        "type": "function_call",
+                        "name": item["name"],
+                        "arguments": item["arguments"],
+                        "call_id": item["call_id"],
+                    }
+                )
+
+    def append_tool_output(
+        self,
+        messages: list[dict],
+        call_id: str,
+        result: str,
+    ) -> None:
+        messages.append(
+            {
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": result,
+            }
+        )
+
+    async def extract_person(
         self,
         text: str,
     ) -> PersonInfo:
-
-        response = self.client.responses.parse(
+        response = await self.client.responses.parse(
             model=settings.openai_model,
             input=[
                 {
@@ -155,23 +164,22 @@ class OpenAIProvider:
 
         return response.output_parsed
 
-    def summarize_email(
+    async def summarize_email(
         self,
         email: str,
     ) -> EmailSummary:
-
-        response = self.client.responses.parse(
+        response = await self.client.responses.parse(
             model=settings.openai_model,
             input=[
                 {
                     "role": "system",
                     "content": (
                         "Analyze the email. "
-                        "Summarize its main purpose."
-                        "Identify concrete action items."
-                        "Determine its priority."
-                        "Determine whether the recipient needs to respond."
-                        "Only use information present in the email."
+                        "Summarize its main purpose. "
+                        "Identify concrete action items. "
+                        "Determine its priority. "
+                        "Determine whether the recipient needs to respond. "
+                        "Only use information present in the email. "
                         "Do not invent action items."
                     ),
                 },
@@ -189,136 +197,3 @@ class OpenAIProvider:
             )
 
         return response.output_parsed
-
-    def generate_with_tools(
-            self,
-            prompt:str,
-    ):
-
-        try:
-            response = self.client.responses.create(
-                model=settings.openai_model,
-                instructions=(
-                                    "You are an AI assistant. "
-                                    "Answer clearly and concisely. "
-                                    "If you do not know something, say so "
-                                    "rather than inventing information."
-                                    "If a tools returns something is not supported "
-                                    "say that as an response."
-                                ),
-                input=prompt,
-                tools=[time_tool,
-                       add_numbers_tool,],
-            )
-
-            logger.debug(
-                "Tool request raw output: %s",
-                response.output,
-            )
-
-            input_items = list(response.output)
-
-            function_calls = [
-                item
-                for item in response.output
-                if item.type == "function_call"
-            ]
-
-            if not function_calls:
-                logger.info(
-                    "No tool call requested by model; returning text directly"
-                )
-                return response.output_text
-
-            for item in function_calls:
-                fn = TOOLS[item.name]
-                arguments = json.loads(item.arguments)
-                logger.info(
-                    "Tool called: %s with arguments %s",
-                    item.name,
-                    arguments,
-                )
-                result = fn(**arguments)
-                logger.info(
-                    "Tool result for %s: %s",
-                    item.name,
-                    result,
-                )
-                input_items.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": item.call_id,
-                        "output": str(result),
-                    }
-                )
-
-            final_response = self.client.responses.create(
-                model=settings.openai_model,
-                input=input_items,
-                tools=[time_tool],
-            )
-
-            logger.info(
-                "Final response after tool call: %s",
-                final_response.output_text,
-            )
-
-            return final_response.output_text
-
-        except openai.RateLimitError as exc:
-            raise LLMRateLimitError(
-                 "The LLM provider rate limit was exceeded."
-            ) from exc
-        
-        except openai.AuthenticationError as exc:
-            raise LLMAuthenticationError(
-                "LLM provider authentication failed."
-            ) from exc
-        
-        except (
-            openai.APITimeoutError,
-            openai.APIConnectionError,
-                ) as exc:
-            raise LLMProviderError(
-                "Unable to communicate with the LLM provider."
-            ) from exc
-        
-        except openai.APIError as exc:
-            raise LLMProviderError(
-                "The LLM provider returned an error."
-        ) from exc
-
-
-    def create_response(
-    self,
-    input_items,
-    tools,
-    ):
-        try:
-            return self.client.responses.create(
-                model=settings.openai_model,
-                input=input_items,
-                tools=tools,
-            )
-        except openai.RateLimitError as exc:
-            raise LLMRateLimitError(
-                "The LLM provider rate limit was exceeded."
-            ) from exc
-
-        except openai.AuthenticationError as exc:
-            raise LLMAuthenticationError(
-                "LLM provider authentication failed."
-            ) from exc
-
-        except (
-            openai.APITimeoutError,
-            openai.APIConnectionError,
-        ) as exc:
-            raise LLMProviderError(
-                "Unable to communicate with the LLM provider."
-            ) from exc
-
-        except openai.APIError as exc:
-            raise LLMProviderError(
-                "The LLM provider returned an error."
-            ) from exc

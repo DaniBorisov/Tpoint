@@ -1,49 +1,23 @@
 from sqlalchemy.orm import Session
 
-import json
-import httpx
 import logging
 
 from app.schemas.message import MessageCreate
-from app.schemas.task import TaskCreate
 from app.models.message import Message
 
-from app.llm import get_llm
+from app.llm.base import LLMProvider
 from app.repositories.message_repository import MessageRepository
-from app.repositories.task_repository import TaskRepository
 from app.services.task_service import TaskService
-from app.core.exceptions import LLMUnavailableError, ToolCallError
+from app.core.exceptions import LLMUnavailableError, ToolError
+from app.tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
 HISTORY_LIMIT = 20
 
-CREATE_TASK_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "create_task",
-        "description": "Create a new task/todo item for the user.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Short clear decription of the task.",
-                },
-                "priority": {
-                    "type": "string",
-                    "enum": ["low","medium", "high"],
-                    "description":"What priority the task has",
-                },
-            },
-            "required": ["title","priority"],              
-        },
-    },
-}
-
 SYSTEM_PROMPT = {
     "role": "system",
-    "content": ( 
+    "content": (
         "The messages below are the real prior conversation with this user, "
         "oldest first - treat them as your actual memory of what was said. "
         "When asked what the user said or asked previously, look at those earlier "
@@ -64,7 +38,6 @@ SYSTEM_PROMPT = {
     ),
 }
 
-TOOLS = [CREATE_TASK_TOOL]
 
 class MessageService:
 
@@ -72,14 +45,20 @@ class MessageService:
         self,
         repository: MessageRepository,
         task_service: TaskService,
+        tool_registry: ToolRegistry,
+        llm: LLMProvider,
+        max_iterations: int = 5,
     ):
         self.repository = repository
         self.task_service = task_service
+        self.tool_registry = tool_registry
+        self.llm = llm
+        self.max_iterations = max_iterations
 
     def get_messages(self):
         logger.info("Retrieving all messages")
         return self.repository.get_all()
-    
+
     def _build_history(self) -> list[dict]:
         past_messages = self.repository.get_all()
         logger.info("Building history from %s messages", len(past_messages))
@@ -91,71 +70,82 @@ class MessageService:
             if m.llm_response:
                 history.append({"role": "assistant", "content": m.llm_response})
         return history
-    
-    def _run_tool(self, name: str, arguments: dict) -> str:
-        logger.info("Running tool %s", name)
-        if name == "create_task":
-            # task_service = (
-            #     self.task_service
-            #     if self.task_service is not None
-            #     else TaskService(TaskRepository(db))
-            # )
-            task = self.task_service.create_task_db(
-                TaskCreate(
-                    title = arguments["title"],
-                    priority = arguments["priority"],
-                    user_id= 1,
-                ),
-            )
-            return f"Task created: '{task.title}', '{task.priority}', 'id: {task.id}'"
-        logger.warning("Unknown tool used: %s", name)
-        return "Unknown tool used"
-    
-    async def _call_llm(self, lmm, messages: list[dict])-> dict:
+
+    async def _call_llm(
+        self,
+        messages: list[dict],
+        tools: list,
+    ):
         logger.info("Calling LLM")
         try:
-            return await lmm.chat(messages, tools= TOOLS)
-        except httpx.HTTPError as e:
+            return await self.llm.chat_response(
+                messages=messages,
+                tools=tools,
+            )
+        except ToolError as e:
+            logger.warning("Tool call failed: %s", e)
+            raise
+        except Exception as e:
             logger.warning("LLM call failed: %s", e)
             raise LLMUnavailableError(f"LLM unavailable: {e}")
 
     async def create_message(self, message: MessageCreate) -> Message:
         logger.info("Creating message from sender %s", message.sender)
-        llm = get_llm()
-        history = self._build_history()
-        messages = [SYSTEM_PROMPT] + history + [{"role": "user", "content": message.content}]
+        messages = (
+            [SYSTEM_PROMPT]
+            + self._build_history()
+            + [{"role": "user", "content": message.content}]
+        )
+        tools = self.tool_registry.get_definitions()
 
-        llm_messages = await self._call_llm(llm, messages)
-        tool_calls =  llm_messages.get("tool_calls")
+        llm_response = ""
+        for iteration in range(self.max_iterations):
+            logger.info(
+                "Message LLM iteration=%s",
+                iteration + 1,
+            )
 
-        if tool_calls:
-            messages.append(llm_messages)
+            result = await self._call_llm(messages, tools)
+
+            tool_calls = [
+                item
+                for item in result.output
+                if item["type"] == "function_call"
+            ]
+
+            if not tool_calls:
+                llm_response = result.output_text
+                break
+
+            self.llm.append_assistant_output(messages, result)
 
             for call in tool_calls:
-                fn = call["function"]
-                name = fn["name"]
-                arguments = fn["arguments"]
-
+                logger.info(
+                    "Message requested tool=%s",
+                    call["name"],
+                )
                 try:
-                    if isinstance(arguments, str):
-                        arguments = json.loads(arguments)
-                    result = self._run_tool(name, arguments)
-                except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-                    logger.warning("Invalid tool call arguments: %s", e)
-                    raise ToolCallError(f"Invalid tool call arguments: {e}")
+                    output = self.tool_registry.execute(
+                        name=call["name"],
+                        arguments=call["arguments"],
+                    )
+                    tool_output = str(output)
+                except ToolError as e:
+                    logger.warning("Tool failed: %s", e)
+                    tool_output = (
+                        "The requested tool could not complete the operation."
+                    )
 
-                messages.append({"role": "tool", "content": result})
-            
-            final_message = await self._call_llm(llm, messages)
-            llm_response = final_message.get("content") or ""
+                self.llm.append_tool_output(
+                    messages,
+                    call_id=call["call_id"],
+                    result=tool_output,
+                )
 
-        else:
-            llm_response = llm_messages.get("content") or ""
-        
         record = Message(
-            sender = message.sender,
-            content = message.content,
-            llm_response = llm_response,
+            sender=message.sender,
+            content=message.content,
+            llm_response=llm_response,
         )
 
         saved = self.repository.create_message(record)
