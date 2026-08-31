@@ -31,7 +31,7 @@ def get_llm_service() -> OpenAILLMService:
 def chat(request: ChatRequest,
          service: OpenAILLMService = Depends(get_llm_service)):
 
-    answer = service.generate(
+    answer = service.generate_with_tools(
         request.message
     )
 

@@ -11,6 +11,19 @@ class LLMProvider(Protocol):
     ) -> str:
         ...
 
+    def generate_with_tools(
+        self,
+        prompt: str,
+    ) -> str:
+        ...
+
+    def create_response(
+        self,
+        input_items,
+        tools,
+    ):
+        ...
+
     def extract_person(
         self,
         text: str,

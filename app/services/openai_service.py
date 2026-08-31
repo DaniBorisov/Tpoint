@@ -31,3 +31,8 @@ class OpenAILLMService:
         email: str,
     ) -> EmailSummary:
         return self.provider.summarize_email(email)
+
+    def generate_with_tools(self, prompt: str) -> str:
+        logger.info("Sending request to LLM")
+
+        return self.provider.generate_with_tools(prompt)
