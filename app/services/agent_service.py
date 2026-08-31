@@ -1,10 +1,12 @@
 import logging
 
 from app.core.exceptions import AgentMaxIterationsError, ToolError
+from app.llm.base import LLMProvider
+from app.schemas.ai import EmailSummary, PersonInfo
 from app.tools.registry import ToolRegistry
-from app.llm.provider import LLMProvider
 
 logger = logging.getLogger(__name__)
+
 
 class AgentService:
 
@@ -18,91 +20,81 @@ class AgentService:
         self.tool_registry = tool_registry
         self.max_iterations = max_iterations
 
-    
-
-    def run(
+    async def run(
         self,
         message: str,
     ) -> str:
-
-        input_items = [
-            {
-                "role": "user",
-                "content": message,
-            }
-        ]
-
+        messages = self.llm_provider.build_messages(message)
         tools = self.tool_registry.get_definitions()
-        
 
-        for iteration in range(
-            self.max_iterations
-        ):
-
+        for iteration in range(self.max_iterations):
             logger.info(
                 "Agent iteration=%s",
                 iteration + 1,
             )
-            
-            response = (
-                self.llm_provider.create_response(
-                    input_items=input_items,
-                    tools=tools,
-                )
+
+            response = await self.llm_provider.chat_response(
+                messages=messages,
+                tools=tools,
             )
 
             tool_calls = [
                 item
                 for item in response.output
-                if item.type == "function_call"
+                if item["type"] == "function_call"
             ]
 
             if not tool_calls:
                 return response.output_text
 
+            self.llm_provider.append_assistant_output(
+                messages,
+                response,
+            )
 
-            input_items.extend(response.output)
-
-            for tool_call in tool_calls:
-
+            for call in tool_calls:
                 logger.info(
                     "Agent requested tool=%s",
-                    tool_call.name,
+                    call["name"],
                 )
                 try:
-                    result = (
-                        self.tool_registry.execute(
-                            name=tool_call.name,
-                            arguments=tool_call.arguments,
-                        )
+                    result = self.tool_registry.execute(
+                        name=call["name"],
+                        arguments=call["arguments"],
                     )
-
                     tool_output = str(result)
-
                     logger.info(
-                            "Tool completed: tool=%s",
-                            tool_call.name,
+                        "Tool completed: tool=%s",
+                        call["name"],
                     )
                 except ToolError:
                     logger.warning(
                         "Tool failed: tool=%s",
-                        tool_call.name,
+                        call["name"],
                     )
-
                     tool_output = (
                         "The requested tool could not "
                         "complete the operation."
                     )
 
-                input_items.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": tool_call.call_id,
-                        "output": tool_output,
-                    }
+                self.llm_provider.append_tool_output(
+                    messages,
+                    call_id=call["call_id"],
+                    result=tool_output,
                 )
-
 
         raise AgentMaxIterationsError(
             self.max_iterations
         )
+
+    async def extract_person(
+        self,
+        text: str,
+    ) -> PersonInfo:
+        return await self.llm_provider.extract_person(text) # type: ignore
+
+    async def summarize_email(
+        self,
+        email: str,
+    ) -> EmailSummary:
+        return await self.llm_provider.summarize_email(email) # type: ignore

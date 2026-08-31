@@ -1,20 +1,35 @@
 import asyncio
 import httpx
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from app.models.message import Message
-from tests.fake_message_repository import FakeMessageRepository
+from app.llm.base import LLMResponse
 from app.services.message_service import MessageService
+from app.tools.registry import ToolRegistry
+from tests.fake_message_repository import FakeMessageRepository
 
 from app.schemas.message import MessageCreate
 from app.core.exceptions import LLMUnavailableError
 
+
+def build_service():
+    repository = FakeMessageRepository()
+    registry = ToolRegistry()
+    llm = AsyncMock()
+    llm.chat_response = AsyncMock()
+    service = MessageService(
+        repository=repository,
+        task_service=None,  # type: ignore
+        tool_registry=registry,
+        llm=llm,
+    )
+    return service, repository, llm
+
+
 def test_get_messages():
 
-    repository = FakeMessageRepository()
-
-    service = MessageService(repository=repository, task_service=None) # type: ignore
+    service, repository, llm = build_service()
 
     repository.messages.append(
         Message(
@@ -34,19 +49,16 @@ def test_get_messages():
 
 def test_create_message():
 
-    repository = FakeMessageRepository()
+    service, repository, llm = build_service()
+    llm.chat_response = AsyncMock(
+        return_value=LLMResponse(output=[], output_text="Hello from LLM")
+    )
 
-    service = MessageService(repository=repository, task_service=None) # type: ignore
-
-    with patch("app.services.message_service.get_llm") as mock_get_llm:
-        llm = mock_get_llm.return_value
-        llm.chat = AsyncMock(return_value={"content": "Hello from LLM"})
-
-        saved = asyncio.run(
-            service.create_message(
-                MessageCreate(sender="user", content="Hi"),
-            )
+    saved = asyncio.run(
+        service.create_message(
+            MessageCreate(sender="user", content="Hi"),
         )
+    )
 
     assert saved.content == "Hi"
     assert saved.llm_response == "Hello from LLM"
@@ -55,19 +67,14 @@ def test_create_message():
 
 def test_create_message_llm_unavailable():
 
-    repository = FakeMessageRepository()
+    service, repository, llm = build_service()
+    llm.chat_response = AsyncMock(
+        side_effect=httpx.ConnectError("cannot connect")
+    )
 
-    service = MessageService(repository=repository, task_service=None) # type: ignore
-
-    with patch("app.services.message_service.get_llm") as mock_get_llm:
-        llm = mock_get_llm.return_value
-        llm.chat = AsyncMock(
-            side_effect=httpx.ConnectError("cannot connect")
-        )
-
-        with pytest.raises(LLMUnavailableError):
-            asyncio.run(
-                service.create_message(
-                    MessageCreate(sender="user", content="Hi"),
-                )
+    with pytest.raises(LLMUnavailableError):
+        asyncio.run(
+            service.create_message(
+                MessageCreate(sender="user", content="Hi"),
             )
+        )

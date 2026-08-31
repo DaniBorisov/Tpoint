@@ -1,8 +1,21 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import httpx
 
+from app.llm.base import LLMResponse
+from app.main import app
+from app.api.messages import get_llm_provider
 from app.models.message import Message
+from app.tools.registry import ToolRegistry
+
+
+def _override_provider(**kwargs):
+    registry = ToolRegistry()
+    provider = AsyncMock()
+    provider.tool_registry = registry
+    provider.chat_response = AsyncMock(**kwargs)
+    app.dependency_overrides[get_llm_provider] = lambda: provider
+    return provider
 
 
 def test_get_messages_api(
@@ -41,14 +54,17 @@ def test_create_message_api(
     client,
     db_session,
 ):
-    with patch("app.services.message_service.get_llm") as mock_get_llm:
-        llm = mock_get_llm.return_value
-        llm.chat = AsyncMock(return_value={"content": "Hello from LLM"})
+    _override_provider(
+        return_value=LLMResponse(output=[], output_text="Hello from LLM")
+    )
 
+    try:
         response = client.post(
             "/messages/",
             json={"sender": "user", "content": "Hello"},
         )
+    finally:
+        app.dependency_overrides.pop(get_llm_provider, None)
 
     assert response.status_code == 200
 
@@ -66,16 +82,17 @@ def test_create_message_api(
 def test_create_message_llm_unavailable_api(
     client,
 ):
-    with patch("app.services.message_service.get_llm") as mock_get_llm:
-        llm = mock_get_llm.return_value
-        llm.chat = AsyncMock(
-            side_effect=httpx.ConnectError("cannot connect")
-        )
+    _override_provider(
+        side_effect=httpx.ConnectError("cannot connect")
+    )
 
+    try:
         response = client.post(
             "/messages/",
             json={"sender": "user", "content": "Hello"},
         )
+    finally:
+        app.dependency_overrides.pop(get_llm_provider, None)
 
     assert response.status_code == 502
 
