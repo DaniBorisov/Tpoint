@@ -8,7 +8,7 @@ from app.schemas.message import MessageCreate
 from app.schemas.task import TaskCreate
 from app.models.message import Message
 
-from app.services.llm import get_llm
+from app.llm import get_llm
 from app.repositories.message_repository import MessageRepository
 from app.repositories.task_repository import TaskRepository
 from app.services.task_service import TaskService
