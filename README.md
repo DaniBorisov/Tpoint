@@ -115,7 +115,7 @@ cleans up after itself, so the database is reused across runs.
 | POST | `/tasks/db` | Create a task (PostgreSQL) |
 | GET | `/messages/` | List all messages |
 | POST | `/messages/` | Send a message and get an LLM response |
-| POST | `/agent` | Run the agent loop (tool use + LLM) |
+| POST | `/agent/` | Run the agent loop (tool use + LLM) |
 | GET | `/agent/person` | Extract person info (OpenAI only) |
 | POST | `/agent/summarize-email` | Summarize an email (OpenAI only) |
 
