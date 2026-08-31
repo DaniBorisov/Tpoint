@@ -1,12 +1,13 @@
 # AI Assistance
 
-A task management and AI chat API built with FastAPI, PostgreSQL, and Ollama.
+A task management and AI chat API built with FastAPI, PostgreSQL, and LLM providers (Ollama or OpenAI).
 
 ## Prerequisites
 
 - Python 3.13
 - PostgreSQL (or Docker)
-- [Ollama](https://ollama.com) (optional, for chat endpoint)
+- [Ollama](https://ollama.com) (optional, for local chat)
+- OpenAI API key (optional, for OpenAI provider)
 
 ## Dev Setup
 
@@ -26,6 +27,10 @@ Copy `.env.example` to `.env` and configure as needed.
 - `TEST_DATABASE_URL` — PostgreSQL connection string used by the test suite. Required; the suite refuses to run unless it points to the `ai_assistant_test` database.
 - `DATABASE_ECHO` — default `false`. When `true`, logs every SQL statement executed against the database.
 - `LOG_LEVEL` — default `INFO`. Sets application log verbosity (see below).
+- `LLM_PROVIDER` — ollama or openai; selects which LLM backend the app uses. Default ollama.
+- `OPENAI_API_KEY` — required when `LLM_PROVIDER=openai`.
+- `OPENAI_MODEL` — OpenAI model name, default `gpt-5-nano`.
+- `OLLAMA_MODEL` — Ollama model, default `llama3.2`.
 
 ### Log levels
 
@@ -50,12 +55,17 @@ alembic upgrade head
 
 ### LLM (optional)
 
-Start Ollama with a compatible model:
+The app supports two LLM providers, selected with `LLM_PROVIDER`:
+`ollama` (default) or `openai`.
+
+For Ollama, start it with a compatible model:
 
 ```bash
 ollama pull llama3.2
 ollama serve
 ```
+
+For OpenAI, set `LLM_PROVIDER=openai` and `OPENAI_API_KEY` in `.env`.
 
 ## Run
 
@@ -105,6 +115,9 @@ cleans up after itself, so the database is reused across runs.
 | POST | `/tasks/db` | Create a task (PostgreSQL) |
 | GET | `/messages/` | List all messages |
 | POST | `/messages/` | Send a message and get an LLM response |
+| POST | `/agent` | Run the agent loop (tool use + LLM) |
+| GET | `/agent/person` | Extract person info (OpenAI only) |
+| POST | `/agent/summarize-email` | Summarize an email (OpenAI only) |
 
 ## Tech Stack
 
@@ -112,6 +125,7 @@ cleans up after itself, so the database is reused across runs.
 - **SQLAlchemy** — ORM and database access
 - **Alembic** — database migrations
 - **PostgreSQL** — persistent storage
-- **Ollama** — local LLM for chat
+- **Ollama** — local LLM provider
+- **OpenAI** — hosted LLM provider
 - **Pydantic** — data validation
 - **Pytest** — unit, integration, and API tests
